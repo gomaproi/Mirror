@@ -33,9 +33,9 @@ namespace Mirror.Tests.NetworkIdentities
         // serialize -> deserialize. multiple components to be sure.
         // one for Owner, one for Observer
         [Test]
-        [TestCase(SyncMethod.Traditional)]
-        [TestCase(SyncMethod.FastPaced)]
-        public void SerializeAndDeserializeAll_Traditional(SyncMethod method)
+        [TestCase(SyncMethod.Reliable)]
+        [TestCase(SyncMethod.Unreliable)]
+        public void SerializeAndDeserializeAll_Reliable(SyncMethod method)
         {
             // need two of both versions so we can serialize -> deserialize
             CreateNetworkedAndSpawn(
@@ -77,8 +77,8 @@ namespace Mirror.Tests.NetworkIdentities
         // serialization should work even if a component throws an exception.
         // so if first component throws, second should still be serialized fine.
         [Test]
-        [TestCase(SyncMethod.Traditional)]
-        [TestCase(SyncMethod.FastPaced)]
+        [TestCase(SyncMethod.Reliable)]
+        [TestCase(SyncMethod.Unreliable)]
         public void SerializationException(SyncMethod method)
         {
             // the exception component will log exception errors all the way
@@ -183,8 +183,8 @@ namespace Mirror.Tests.NetworkIdentities
         // insane runtime errors like monsters that look like npcs. that's what
         // happened back in the day with UNET).
         [Test]
-        [TestCase(SyncMethod.Traditional)]
-        [TestCase(SyncMethod.FastPaced)]
+        [TestCase(SyncMethod.Reliable)]
+        [TestCase(SyncMethod.Unreliable)]
         public void SerializationMismatch(SyncMethod method)
         {
             // create spawned so that isServer/isClient is set properly
@@ -210,12 +210,12 @@ namespace Mirror.Tests.NetworkIdentities
             Assert.That(clientComp.value, Is.EqualTo("42"));
         }
 
-        // ensure Traditional Serialize writes nothing if not dirty.
+        // ensure Reliable Serialize writes nothing if not dirty.
         // previously after the dirty mask improvement, it would write a 1 byte
         // 0-dirty-mask. instead, we need to ensure it writes nothing.
         // too easy to miss, with too significant bandwidth implications.
         [Test]
-        public void SerializeServer_Traditional_NotInitial_NotDirty_WritesNothing()
+        public void SerializeServer_Reliable_NotInitial_NotDirty_WritesNothing()
         {
             // create spawned so that isServer/isClient is set properly
             CreateNetworkedAndSpawn(
@@ -228,22 +228,22 @@ namespace Mirror.Tests.NetworkIdentities
             // serialize server object.
             // 'initial' would write everything.
             // instead, try 'not initial' with 0 dirty bits
-            serverIdentity.SerializeServer(false, SyncMethod.Traditional, ownerWriter, observersWriter);
+            serverIdentity.SerializeServer(false, SyncMethod.Reliable, ownerWriter, observersWriter);
             Assert.That(ownerWriter.Position, Is.EqualTo(0));
             Assert.That(observersWriter.Position, Is.EqualTo(0));
         }
 
-        // ensure FastPaced Serialize still writes full state even if not dirty.
+        // ensure Unreliable Serialize still writes full state even if not dirty.
         [Test]
-        public void SerializeServer_FastPaced_NotInitial_NotDirty_WritesFull()
+        public void SerializeServer_Unreliable_NotInitial_NotDirty_WritesFull()
         {
             // create spawned so that isServer/isClient is set properly
             CreateNetworkedAndSpawn(
                 out _, out NetworkIdentity serverIdentity, out SerializeTest1NetworkBehaviour serverComp1, out SerializeTest2NetworkBehaviour serverComp2,
                 out _, out NetworkIdentity clientIdentity, out SerializeTest1NetworkBehaviour clientComp1, out SerializeTest2NetworkBehaviour clientComp2);
 
-            serverComp1.syncMethod = SyncMethod.FastPaced;
-            clientComp1.syncMethod = SyncMethod.FastPaced;
+            serverComp1.syncMethod = SyncMethod.Unreliable;
+            clientComp1.syncMethod = SyncMethod.Unreliable;
 
             // change nothing
             // serverComp.value = "42";
@@ -251,13 +251,13 @@ namespace Mirror.Tests.NetworkIdentities
             // serialize server object.
             // 'initial' would write everything.
             // instead, try 'not initial' with 0 dirty bits
-            serverIdentity.SerializeServer(false, SyncMethod.FastPaced, ownerWriter, observersWriter);
+            serverIdentity.SerializeServer(false, SyncMethod.Unreliable, ownerWriter, observersWriter);
             Assert.That(ownerWriter.Position, Is.GreaterThan(0));
             Assert.That(observersWriter.Position, Is.GreaterThan(0));
         }
 
         [Test]
-        public void SerializeClient_Traditional_NotInitial_NotDirty_WritesNothing()
+        public void SerializeClient_Reliable_NotInitial_NotDirty_WritesNothing()
         {
             // create spawned so that isServer/isClient is set properly
             CreateNetworkedAndSpawn(
@@ -275,13 +275,13 @@ namespace Mirror.Tests.NetworkIdentities
             // clientComp.value = "42";
 
             // serialize client object
-            clientIdentity.SerializeClient(SyncMethod.Traditional, ownerWriter);
+            clientIdentity.SerializeClient(SyncMethod.Reliable, ownerWriter);
             Assert.That(ownerWriter.Position, Is.EqualTo(0));
         }
 
-        // ensure FastPaced Serialize still writes full state even if not dirty.
+        // ensure Unreliable Serialize still writes full state even if not dirty.
         [Test]
-        public void SerializeClient_FastPaced_NotInitial_NotDirty_WritesFull()
+        public void SerializeClient_Unreliable_NotInitial_NotDirty_WritesFull()
         {
             // create spawned so that isServer/isClient is set properly
             CreateNetworkedAndSpawn(
@@ -295,14 +295,14 @@ namespace Mirror.Tests.NetworkIdentities
             clientComp1.syncDirection = SyncDirection.ClientToServer;
             clientComp2.syncDirection = SyncDirection.ClientToServer;
 
-            serverComp1.syncMethod = SyncMethod.FastPaced;
-            clientComp1.syncMethod = SyncMethod.FastPaced;
+            serverComp1.syncMethod = SyncMethod.Unreliable;
+            clientComp1.syncMethod = SyncMethod.Unreliable;
 
             // change nothing
             // clientComp.value = "42";
 
             // serialize client object
-            clientIdentity.SerializeClient(SyncMethod.FastPaced, ownerWriter);
+            clientIdentity.SerializeClient(SyncMethod.Unreliable, ownerWriter);
             Assert.That(ownerWriter.Position, Is.GreaterThan(0));
         }
 
@@ -310,8 +310,8 @@ namespace Mirror.Tests.NetworkIdentities
         // one for Owner, one for Observer
         // one ServerToClient, one ClientToServer
         [Test]
-        [TestCase(SyncMethod.Traditional)]
-        [TestCase(SyncMethod.FastPaced)]
+        [TestCase(SyncMethod.Reliable)]
+        [TestCase(SyncMethod.Unreliable)]
         public void SerializeAndDeserialize_ClientToServer_NOT_OWNED(SyncMethod method)
         {
             CreateNetworked(out GameObject _, out NetworkIdentity identity,
@@ -337,8 +337,8 @@ namespace Mirror.Tests.NetworkIdentities
 
         // server should still send initial even if Owner + ClientToServer
         [Test]
-        [TestCase(SyncMethod.Traditional)]
-        [TestCase(SyncMethod.FastPaced)]
+        [TestCase(SyncMethod.Reliable)]
+        [TestCase(SyncMethod.Unreliable)]
         public void SerializeServer_OwnerMode_ClientToServer(SyncMethod method)
         {
             CreateNetworked(out GameObject _, out NetworkIdentity identity,
@@ -377,8 +377,8 @@ namespace Mirror.Tests.NetworkIdentities
         // server should still broadcast ClientToServer components to everyone
         // except the owner.
         [Test]
-        [TestCase(SyncMethod.Traditional)]
-        [TestCase(SyncMethod.FastPaced)]
+        [TestCase(SyncMethod.Reliable)]
+        [TestCase(SyncMethod.Unreliable)]
         public void SerializeServer_ObserversMode_ClientToServer(SyncMethod method)
         {
             CreateNetworked(out GameObject _, out NetworkIdentity identity,

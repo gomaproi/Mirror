@@ -1554,12 +1554,12 @@ namespace Mirror
                 //  NetworkServer.Destroy)
                 if (identity != null)
                 {
-                    // 'Traditional' sync: send Traditional components over reliable.
+                    // 'Reliable' sync: send Reliable components over reliable.
                     using (NetworkWriterPooled writer = NetworkWriterPool.Get())
                     {
                         // get serialization for this entity viewed by this connection
                         // (if anything was serialized this time)
-                        identity.SerializeClient(SyncMethod.Traditional, writer);
+                        identity.SerializeClient(SyncMethod.Reliable, writer);
                         if (writer.Position > 0)
                         {
                             // send state update message
@@ -1572,13 +1572,13 @@ namespace Mirror
                         }
                     }
 
-                    // 'Fast Paced' sync: send Fast Paced components over unreliable
+                    // 'Unreliable' quake style sync sync: send Unreliable components over unreliable
                     // state is always 'initial' since unreliable delivery isn't guaranteed,
                     using (NetworkWriterPooled writer = NetworkWriterPool.Get())
                     {
                         // get serialization for this entity viewed by this connection
                         // (if anything was serialized this time)
-                        identity.SerializeClient(SyncMethod.FastPaced, writer);
+                        identity.SerializeClient(SyncMethod.Unreliable, writer);
                         if (writer.Position > 0)
                         {
                             // send state update message

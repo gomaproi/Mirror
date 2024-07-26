@@ -1,13 +1,12 @@
 // NetworkTransform V3 based on NetworkTransformUnreliable, using Mirror's new
-// FastMode quake style networking model. by mischa (2024-07)
+// Unreliable quake style networking model with delta compression.
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace Mirror
 {
-    [AddComponentMenu("Network/Network Transform (Fast Paced)")]
-    public class NetworkTransformFastPaced : NetworkTransformBase
+    [AddComponentMenu("Network/Network Transform (Unreliable Compressed)")]
+    public class NetworkTransformUnreliableCompressed : NetworkTransformBase
     {
         // validation //////////////////////////////////////////////////////////
         // Configure is called from OnValidate and Awake
@@ -15,8 +14,8 @@ namespace Mirror
         {
             base.Configure();
 
-            // force syncMethod to fast paced
-            syncMethod = SyncMethod.FastPaced;
+            // force syncMethod to unreliable
+            syncMethod = SyncMethod.Unreliable;
 
             // force tick aligned sync
             sendIntervalMultiplier = 1;
@@ -128,7 +127,7 @@ namespace Mirror
                 if (syncScale) writer.WriteVector3(snapshot.scale);
             }
             // delta
-            else Debug.LogError($"{nameof(NetworkTransformFastPaced)} OnSerialize called with initial=false. This should never happen for unreliable state sync!");
+            else Debug.LogError($"{nameof(NetworkTransformUnreliableCompressed)} OnSerialize called with initial=false. This should never happen for unreliable state sync!");
         }
 
         // in FastPaced mode, OnDeserialize always reads full state with initial=true.
@@ -153,7 +152,7 @@ namespace Mirror
                 if (syncScale) scale = reader.ReadVector3();
             }
             // delta
-            else Debug.LogError($"{nameof(NetworkTransformFastPaced)} OnDeserialize called with initial=false. This should never happen for unreliable state sync!");
+            else Debug.LogError($"{nameof(NetworkTransformUnreliableCompressed)} OnDeserialize called with initial=false. This should never happen for unreliable state sync!");
 
             // handle depending on server / client / host.
             // server has priority for host mode.

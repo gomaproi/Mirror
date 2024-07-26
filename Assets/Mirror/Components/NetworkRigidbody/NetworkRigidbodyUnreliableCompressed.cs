@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Mirror
 {
     // [RequireComponent(typeof(Rigidbody))] <- OnValidate ensures this is on .target
-    [AddComponentMenu("Network/Network Rigidbody (Fast Paced)")]
-    public class NetworkRigidbodyFastPaced : NetworkTransformFastPaced
+    [AddComponentMenu("Network/Network Rigidbody (Unreliable Compressed)")]
+    public class NetworkRigidbodyUnreliableCompressed : NetworkTransformUnreliableCompressed
     {
         bool clientAuthority => syncDirection == SyncDirection.ClientToServer;
 

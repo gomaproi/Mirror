@@ -1430,7 +1430,7 @@ namespace Mirror
             // serialize all components with initialState = true
             // (can be null if has none)
             // SyncMethod doesn't matter for initialState, since everything is included
-            identity.SerializeServer(true, SyncMethod.Traditional, ownerWriter, observersWriter);
+            identity.SerializeServer(true, SyncMethod.Reliable, ownerWriter, observersWriter);
 
             // convert to ArraySegment to avoid reader allocations
             // if nothing was written, .ToArraySegment returns an empty segment.
@@ -1904,25 +1904,25 @@ namespace Mirror
             // is this entity owned by this connection?
             bool owned = identity.connectionToClient == connection;
 
-            if (method == SyncMethod.Traditional)
+            if (method == SyncMethod.Reliable)
             {
                 // send serialized data
                 // owner writer if owned
                 if (owned)
                 {
                     // was it dirty / did we actually serialize anything?
-                    if (serialization.ownerWriterTraditional.Position > 0)
-                        return serialization.ownerWriterTraditional;
+                    if (serialization.ownerWriterReliable.Position > 0)
+                        return serialization.ownerWriterReliable;
                 }
                 // observers writer if not owned
                 else
                 {
                     // was it dirty / did we actually serialize anything?
-                    if (serialization.observersWriterTraditional.Position > 0)
-                        return serialization.observersWriterTraditional;
+                    if (serialization.observersWriterReliable.Position > 0)
+                        return serialization.observersWriterReliable;
                 }
             }
-            else if (method == SyncMethod.FastPaced)
+            else if (method == SyncMethod.Unreliable)
             {
                 // send serialized data
                 // owner writer if owned
@@ -1958,10 +1958,10 @@ namespace Mirror
                 //  NetworkServer.Destroy)
                 if (identity != null)
                 {
-                    // 'Traditional' sync: send Traditional components over reliable with initial/delta
+                    // 'Reliable' sync: send Reliable components over reliable with initial/delta
                     // get serialization for this entity viewed by this connection
                     // (if anything was serialized this time)
-                    NetworkWriter serialization = SerializeForConnection(identity, connection, SyncMethod.Traditional);
+                    NetworkWriter serialization = SerializeForConnection(identity, connection, SyncMethod.Reliable);
                     if (serialization != null)
                     {
                         EntityStateMessage message = new EntityStateMessage
@@ -1972,9 +1972,9 @@ namespace Mirror
                         connection.Send(message, Channels.Reliable);
                     }
 
-                    // 'Fast Paced' sync: send Fast Paced components over unreliable
+                    // 'Unreliable' sync: send Unreliable components over unreliable
                     // state is always 'initial' since unreliable delivery isn't guaranteed,
-                    serialization = SerializeForConnection(identity, connection, SyncMethod.FastPaced);
+                    serialization = SerializeForConnection(identity, connection, SyncMethod.Unreliable);
                     if (serialization != null)
                     {
                         EntityStateMessageUnreliable message = new EntityStateMessageUnreliable

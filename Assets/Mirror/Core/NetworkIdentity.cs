@@ -28,18 +28,18 @@ namespace Mirror
         // IMPORTANT: int tick avoids floating point inaccuracy over days/weeks
         public int tick;
 
-        // traditional reliable sync
-        public NetworkWriter ownerWriterTraditional;
-        public NetworkWriter observersWriterTraditional;
+        // reliable sync
+        public NetworkWriter ownerWriterReliable;
+        public NetworkWriter observersWriterReliable;
 
-        // fast paced unreliable sync
+        // unreliable sync
         public NetworkWriter ownerWriterFastPaced;
         public NetworkWriter observersWriterFastPaced;
 
         public void ResetWriters()
         {
-            ownerWriterTraditional.Position = 0;
-            observersWriterTraditional.Position = 0;
+            ownerWriterReliable.Position = 0;
+            observersWriterReliable.Position = 0;
             ownerWriterFastPaced.Position = 0;
             observersWriterFastPaced.Position = 0;
         }
@@ -233,8 +233,8 @@ namespace Mirror
         // => way easier to store them per object
         NetworkIdentitySerialization lastSerialization = new NetworkIdentitySerialization
         {
-            ownerWriterTraditional = new NetworkWriter(),
-            observersWriterTraditional = new NetworkWriter(),
+            ownerWriterReliable = new NetworkWriter(),
+            observersWriterReliable = new NetworkWriter(),
             ownerWriterFastPaced = new NetworkWriter(),
             observersWriterFastPaced = new NetworkWriter(),
         };
@@ -857,8 +857,8 @@ namespace Mirror
         // faster to do it in one iteration instead of iterating separately.
         // -> initialState: marks all components for spawn message no matter the method.
         // -> delta sync:   depends on SyncMethod
-        //       Traditional: mark the dirty components
-        //       FastPaced:   mark all components (unreliable isn't guaranteed to be delivered)
+        //       Reliable: mark the dirty components
+        //       Unreliable:   mark all components (unreliable isn't guaranteed to be delivered)
         (ulong, ulong) ServerDirtyMasks(bool initialState, SyncMethod method)
         {
             ulong ownerMask = 0;
@@ -1169,15 +1169,15 @@ namespace Mirror
                 // reset
                 lastSerialization.ResetWriters();
 
-                // serialize - traditional
+                // serialize - reliable
                 SerializeServer(false,
-                                SyncMethod.Traditional,
-                                lastSerialization.ownerWriterTraditional,
-                                lastSerialization.observersWriterTraditional);
+                                SyncMethod.Reliable,
+                                lastSerialization.ownerWriterReliable,
+                                lastSerialization.observersWriterReliable);
 
-                // serialize - fast paced
+                // serialize - unreliable
                 SerializeServer(false,
-                                SyncMethod.FastPaced,
+                                SyncMethod.Unreliable,
                                 lastSerialization.ownerWriterFastPaced,
                                 lastSerialization.observersWriterFastPaced);
 

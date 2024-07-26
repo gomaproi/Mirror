@@ -94,7 +94,7 @@ namespace Mirror
         public uint netId;
     }
 
-    // state update for Traditional reliable sync
+    // state update for reliable sync
     public struct EntityStateMessage : NetworkMessage
     {
         public uint netId;
@@ -103,7 +103,7 @@ namespace Mirror
         public ArraySegment<byte> payload;
     }
 
-    // state update for FastPaced unreliable sync
+    // state update for unreliable sync
     public struct EntityStateMessageUnreliable : NetworkMessage
     {
         public uint netId;

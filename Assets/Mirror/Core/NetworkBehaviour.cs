@@ -17,11 +17,11 @@ namespace Mirror
     // that wouldn't be accurate. server's OnDeserialize can still validate
     // client data before applying. it's really about direction, not authority.
     public enum SyncDirection { ServerToClient, ClientToServer }
-    
+
     // SyncMethod to choose between:
     //   * Reliable: oldschool reliable sync every syncInterval. If nothing changes, nothing is sent.
     //   * Unreliable: quake style unreliable state sync & delta compression, for fast paced games.
-    public enum SyncMethod { Traditional, FastPaced }
+    public enum SyncMethod { Reliable, Unreliable }
 
     /// <summary>Base class for networked components.</summary>
     // [RequireComponent(typeof(NetworkIdentity))] disabled to allow child NetworkBehaviours
@@ -29,9 +29,9 @@ namespace Mirror
     [HelpURL("https://mirror-networking.gitbook.io/docs/guides/networkbehaviour")]
     public abstract class NetworkBehaviour : MonoBehaviour
     {
-        [Tooltip("Choose between:\n- Traditional state sync (every syncInterval, if changed, over unreliable channel). This just works, and is recommended for most games.\n- Fast Paced (every tick, all the time, over unreliable channel, with restrictions). This is the Quake networking model, recommended for fast paced games like Shooters/Mobas/Physics Simulations/VR.\n\nPlease use 'Traditional' unless you understand the trade-offs.")]
-        [HideInInspector] public SyncMethod syncMethod = SyncMethod.Traditional;
-        
+        [Tooltip("Choose between:\n- Reliable state sync (every syncInterval, if changed, over reliable channel). This just works, and is recommended for most games.\n- Unreliable (every tick, delta compressed, over unreliable channel, with restrictions). This is the Quake networking model adapted into Mirror, recommended for fast paced games like Shooters/Mobas/Physics Simulations/VR.\n\nPlease use 'Reliable' unless you understand the trade-offs.")]
+        [HideInInspector] public SyncMethod syncMethod = SyncMethod.Reliable;
+
         /// <summary>Sync direction for OnSerialize. ServerToClient by default. ClientToServer for client authority.</summary>
         [Tooltip("Server Authority calls OnSerialize on the server and syncs it to clients.\n\nClient Authority calls OnSerialize on the owning client, syncs it to server, which then broadcasts it to all other clients.\n\nUse server authority for cheat safety.")]
         [HideInInspector] public SyncDirection syncDirection = SyncDirection.ServerToClient;
@@ -243,13 +243,13 @@ namespace Mirror
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool IsDirtyFor(SyncMethod method)
         {
-            // traditional: only if dirty bits were set
-            if (method == SyncMethod.Traditional && syncMethod == SyncMethod.Traditional)
+            // reliable: only if dirty bits were set
+            if (method == SyncMethod.Reliable && syncMethod == SyncMethod.Reliable)
             {
                 return IsDirty();
             }
-            // fast paced: always include the component since unreliable message isn't guaranteed to be delivered
-            else if (method == SyncMethod.FastPaced && syncMethod == SyncMethod.FastPaced)
+            // unreliable: always include the component since unreliable message isn't guaranteed to be delivered
+            else if (method == SyncMethod.Unreliable && syncMethod == SyncMethod.Unreliable)
             {
                 return true;
             }
@@ -1106,7 +1106,7 @@ namespace Mirror
             {
                 return null;
             }
-            
+
             // ensure componentIndex is in range.
             // show explicit errors if something went wrong, instead of IndexOutOfRangeException.
             // removing components at runtime isn't allowed, yet this happened in a project so we need to check for it.
@@ -1289,11 +1289,11 @@ namespace Mirror
             try
             {
                 // SyncMethod support:
-                //   Traditional: Serialize(initial) once, then Serialize(delta) all the time.
-                //   FastPaced:   Serialize(initial) all the time because we always need full state for unreliable messages
+                //   Reliable:   Serialize(initial) once, then Serialize(delta) all the time.
+                //   Unreliable: Serialize(initial) all the time because we always need full state for unreliable messages
                 // => reusing OnSerialize(initial=true) for FastPaced allows us to keep the API clean and simple.
                 //    this way the end user never needs to worry about SyncMethod serialization.
-                OnSerialize(writer, initialState || method == SyncMethod.FastPaced);
+                OnSerialize(writer, initialState || method == SyncMethod.Unreliable);
             }
             catch (Exception e)
             {
