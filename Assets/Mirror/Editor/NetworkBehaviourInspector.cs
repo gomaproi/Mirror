@@ -93,7 +93,7 @@ namespace Mirror
             // Unreliable sync method: show a warning!
             if (syncMethod.enumValueIndex == (int)SyncMethod.Unreliable)
             {
-                EditorGUILayout.HelpBox("Beware!\nUnreliable is experimental and only meant for hardcore low latency competitive games!", MessageType.Warning);
+                EditorGUILayout.HelpBox("Beware!\nUnreliable is experimental and only meant for hardcore competitive games!", MessageType.Warning);
             }
 
             // sync direction
