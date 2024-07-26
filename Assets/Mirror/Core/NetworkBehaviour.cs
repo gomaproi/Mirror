@@ -29,7 +29,7 @@ namespace Mirror
     [HelpURL("https://mirror-networking.gitbook.io/docs/guides/networkbehaviour")]
     public abstract class NetworkBehaviour : MonoBehaviour
     {
-        [Tooltip("Choose between:\n- Reliable state sync (every syncInterval, if changed, over reliable channel). This just works, and is recommended for most games.\n- Unreliable (every tick, delta compressed, over unreliable channel, with restrictions). This is the Quake networking model adapted into Mirror, recommended for fast paced games like Shooters/Mobas/Physics Simulations/VR.\n\nPlease use 'Reliable' unless you understand the trade-offs.")]
+        [Tooltip("Choose between:\n- Reliable: only sends when changed. Recommended for most games!\n- Unreliable: immediately sends at the expense of bandwidth. Only for hardcore competitive games.\nClick the Help icon for full details.")]
         [HideInInspector] public SyncMethod syncMethod = SyncMethod.Reliable;
 
         /// <summary>Sync direction for OnSerialize. ServerToClient by default. ClientToServer for client authority.</summary>
