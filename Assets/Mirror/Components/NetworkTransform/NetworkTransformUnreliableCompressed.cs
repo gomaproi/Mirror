@@ -176,7 +176,7 @@ namespace Mirror
             // an unchanged component would still require 1 byte.
             // let's use a dirty bit mask to filter those out as well.
 
-            Debug.Log($"NT OnSerialize: initial={initialState} method={syncMethod}");
+            // Debug.Log($"NT OnSerialize: initial={initialState} method={syncMethod}");
 
             // reliable full state
             if (initialState)
@@ -192,6 +192,9 @@ namespace Mirror
                 // 2. Regular NTR gets by this bug because it sends every frame anyway so initialstate
                 //    snapshot constructed would have been the same as the last anyway.
                 // if (last.remoteTime > 0) snapshot = last;
+
+                int startPosition = writer.Position;
+
                 if (syncPosition) writer.WriteVector3(snapshot.position);
                 if (syncRotation)
                 {
@@ -208,12 +211,16 @@ namespace Mirror
                 if (syncPosition) Compression.ScaleToLong(snapshot.position, positionPrecision, out lastSerializedPosition);
                 if (syncScale) Compression.ScaleToLong(snapshot.scale, scalePrecision, out lastSerializedScale);
 
+                Debug.Log($"{name} NT OnSerialize initial: {(writer.Position - startPosition)} bytes");
+
                 // set 'last'
                 last = snapshot;
             }
             // unreliable delta: compress against last full reliable state
             else
             {
+                int startPosition = writer.Position;
+
                 if (syncPosition)
                 {
                     // quantize -> delta -> varint
@@ -234,6 +241,8 @@ namespace Mirror
                     Compression.ScaleToLong(snapshot.scale, scalePrecision, out Vector3Long quantized);
                     DeltaCompression.Compress(writer, lastSerializedScale, quantized);
                 }
+
+                Debug.Log($"{name} NT OnSerialize delta: {(writer.Position - startPosition)} bytes");
             }
         }
 
@@ -242,8 +251,6 @@ namespace Mirror
         // - initial=false sends unreliable delta states
         public override void OnDeserialize(NetworkReader reader, bool initialState)
         {
-            Debug.Log($"NT OnDeserialize: initial={initialState} method={syncMethod}");
-
             Vector3? position = null;
             Quaternion? rotation = null;
             Vector3? scale = null;
@@ -251,6 +258,8 @@ namespace Mirror
             // reliable full state
             if (initialState)
             {
+                Debug.Log($"{name} NT OnDeserialize initial with total remaining: {reader.Remaining} bytes");
+
                 if (syncPosition) position = reader.ReadVector3();
                 if (syncRotation)
                 {
@@ -270,6 +279,8 @@ namespace Mirror
             // unreliable delta: decompress against last full reliable state
             else
             {
+                Debug.Log($"{name} NT OnDeserialize delta with total remaining: {reader.Remaining} bytes");
+
                 // varint -> delta -> quantize
                 if (syncPosition)
                 {
