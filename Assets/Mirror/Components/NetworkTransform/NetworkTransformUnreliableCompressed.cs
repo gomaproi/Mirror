@@ -1,6 +1,7 @@
 // NetworkTransform V3 based on NetworkTransformUnreliable, using Mirror's new
 // Unreliable quake style networking model with delta compression.
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace Mirror
@@ -8,6 +9,39 @@ namespace Mirror
     [AddComponentMenu("Network/Network Transform (Unreliable Compressed)")]
     public class NetworkTransformUnreliableCompressed : NetworkTransformBase
     {
+        [Header("Additional Settings")]
+        [Tooltip("If we only sync on change, then we need to correct old snapshots if more time than sendInterval * multiplier has elapsed.\n\nOtherwise the first move will always start interpolating from the last move sequence's time, which will make it stutter when starting every time.")]
+        public float onlySyncOnChangeCorrectionMultiplier = 2;
+
+        [Header("Rotation")]
+        [Tooltip("Sensitivity of changes needed before an updated state is sent over the network")]
+        public float rotationSensitivity = 0.01f;
+
+        // delta compression is capable of detecting byte-level changes.
+        // if we scale float position to bytes,
+        // then small movements will only change one byte.
+        // this gives optimal bandwidth.
+        //   benchmark with 0.01 precision: 130 KB/s => 60 KB/s
+        //   benchmark with 0.1  precision: 130 KB/s => 30 KB/s
+        [Header("Precision")]
+        [Tooltip("Position is rounded in order to drastically minimize bandwidth.\n\nFor example, a precision of 0.01 rounds to a centimeter. In other words, sub-centimeter movements aren't synced until they eventually exceeded an actual centimeter.\n\nDepending on how important the object is, a precision of 0.01-0.10 (1-10 cm) is recommended.\n\nFor example, even a 1cm precision combined with delta compression cuts the Benchmark demo's bandwidth in half, compared to sending every tiny change.")]
+        [Range(0.00_01f, 1f)]                   // disallow 0 division. 1mm to 1m precision is enough range.
+        public float positionPrecision = 0.01f; // 1 cm
+        [Range(0.00_01f, 1f)]                   // disallow 0 division. 1mm to 1m precision is enough range.
+        public float scalePrecision = 0.01f; // 1 cm
+
+        // delta compression needs to remember 'last' to compress against.
+        // this is from reliable full state serializations, not from last
+        // unreliable delta since that isn't guaranteed to be delivered.
+        protected Vector3Long lastSerializedPosition = Vector3Long.zero;
+        protected Vector3Long lastDeserializedPosition = Vector3Long.zero;
+
+        protected Vector3Long lastSerializedScale = Vector3Long.zero;
+        protected Vector3Long lastDeserializedScale = Vector3Long.zero;
+
+        // Used to store last sent snapshots
+        protected TransformSnapshot last;
+
         // validation //////////////////////////////////////////////////////////
         // Configure is called from OnValidate and Awake
         protected override void Configure()
@@ -40,8 +74,8 @@ namespace Mirror
             // instead.
             if (isServer || (IsClientWithAuthority && NetworkClient.ready))
             {
-                // TODO only if Changed
-                SetDirty();
+                if (!onlySyncOnChange || Changed(Construct()))
+                    SetDirty();
             }
         }
 
@@ -101,6 +135,29 @@ namespace Mirror
             }
         }
 
+        // check if position / rotation / scale changed since last _full reliable_ sync.
+        protected virtual bool Changed(TransformSnapshot current) =>
+            // position is quantized and delta compressed.
+            // only consider it changed if the quantized representation is changed.
+            // careful: don't use 'serialized / deserialized last'. as it depends on sync mode etc.
+            QuantizedChanged(last.position, current.position, positionPrecision) ||
+            // rotation isn't quantized / delta compressed.
+            // check with sensitivity.
+            Quaternion.Angle(last.rotation, current.rotation) > rotationSensitivity ||
+            // scale is quantized and delta compressed.
+            // only consider it changed if the quantized representation is changed.
+            // careful: don't use 'serialized / deserialized last'. as it depends on sync mode etc.
+            QuantizedChanged(last.scale, current.scale, scalePrecision);
+
+        // helper function to compare quantized representations of a Vector3
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected bool QuantizedChanged(Vector3 u, Vector3 v, float precision)
+        {
+            Compression.ScaleToLong(u, precision, out Vector3Long uQuantized);
+            Compression.ScaleToLong(v, precision, out Vector3Long vQuantized);
+            return uQuantized != vQuantized;
+        }
+
         // Unreliable OnSerialize:
         // - initial=true  sends reliable full state
         // - initial=false sends unreliable delta states
@@ -133,6 +190,7 @@ namespace Mirror
                 //    of this function, last = snapshot which is the initial state's snapshot
                 // 2. Regular NTR gets by this bug because it sends every frame anyway so initialstate
                 //    snapshot constructed would have been the same as the last anyway.
+                if (last.remoteTime > 0) snapshot = last;
                 if (syncPosition) writer.WriteVector3(snapshot.position);
                 if (syncRotation)
                 {
@@ -143,12 +201,24 @@ namespace Mirror
                         writer.WriteQuaternion(snapshot.rotation);
                 }
                 if (syncScale) writer.WriteVector3(snapshot.scale);
+
+                // save serialized as 'last' for next delta compression.
+                // only for reliable full sync, since unreliable isn't guaranteed to arrive.
+                if (syncPosition) Compression.ScaleToLong(snapshot.position, positionPrecision, out lastSerializedPosition);
+                if (syncScale) Compression.ScaleToLong(snapshot.scale, scalePrecision, out lastSerializedScale);
+
+                // set 'last'
+                last = snapshot;
             }
-            // unreliable delta state
+            // unreliable delta: compress against last full reliable state
             else
             {
-                // TODO delta compress against last
-                if (syncPosition) writer.WriteVector3(snapshot.position);
+                if (syncPosition)
+                {
+                    // quantize -> delta -> varint
+                    Compression.ScaleToLong(snapshot.position, positionPrecision, out Vector3Long quantized);
+                    DeltaCompression.Compress(writer, lastSerializedPosition, quantized);
+                }
                 if (syncRotation)
                 {
                     // (optional) smallest three compression for now. no delta.
@@ -157,7 +227,12 @@ namespace Mirror
                     else
                         writer.WriteQuaternion(snapshot.rotation);
                 }
-                if (syncScale) writer.WriteVector3(snapshot.scale);
+                if (syncScale)
+                {
+                    // quantize -> delta -> varint
+                    Compression.ScaleToLong(snapshot.scale, scalePrecision, out Vector3Long quantized);
+                    DeltaCompression.Compress(writer, lastSerializedScale, quantized);
+                }
             }
         }
 
@@ -185,11 +260,21 @@ namespace Mirror
                         rotation = reader.ReadQuaternion();
                 }
                 if (syncScale) scale = reader.ReadVector3();
+
+                // save deserialized as 'last' for next delta compression.
+                // only for reliable full sync, since unreliable isn't guaranteed to arrive.
+                if (syncPosition) Compression.ScaleToLong(position.Value, positionPrecision, out lastDeserializedPosition);
+                if (syncScale) Compression.ScaleToLong(scale.Value, scalePrecision, out lastDeserializedScale);
             }
-            // unreliable delta state
+            // unreliable delta: decompress against last full reliable state
             else
             {
-                if (syncPosition) position = reader.ReadVector3();
+                // varint -> delta -> quantize
+                if (syncPosition)
+                {
+                    Vector3Long quantized = DeltaCompression.Decompress(reader, lastDeserializedPosition);
+                    position = Compression.ScaleToFloat(quantized, positionPrecision);
+                }
                 if (syncRotation)
                 {
                     // (optional) smallest three compression for now. no delta.
@@ -198,7 +283,11 @@ namespace Mirror
                     else
                         rotation = reader.ReadQuaternion();
                 }
-                if (syncScale) scale = reader.ReadVector3();
+                if (syncScale)
+                {
+                    Vector3Long quantized = DeltaCompression.Decompress(reader, lastDeserializedScale);
+                    scale = Compression.ScaleToFloat(quantized, scalePrecision);
+                }
             }
 
             // handle depending on server / client / host.
@@ -220,7 +309,7 @@ namespace Mirror
 
             // 'only sync on change' needs a correction on every new move sequence.
             if (onlySyncOnChange &&
-                NeedsCorrection(serverSnapshots, connectionToClient.remoteTimeStamp, NetworkServer.sendInterval * sendIntervalMultiplier))
+                NeedsCorrection(serverSnapshots, connectionToClient.remoteTimeStamp, NetworkServer.sendInterval * sendIntervalMultiplier, onlySyncOnChangeCorrectionMultiplier))
             {
                 RewriteHistory(
                     serverSnapshots,
@@ -248,7 +337,7 @@ namespace Mirror
 
             // 'only sync on change' needs a correction on every new move sequence.
             if (onlySyncOnChange &&
-                NeedsCorrection(clientSnapshots, NetworkClient.connection.remoteTimeStamp, NetworkClient.sendInterval * sendIntervalMultiplier))
+                NeedsCorrection(clientSnapshots, NetworkClient.connection.remoteTimeStamp, NetworkClient.sendInterval * sendIntervalMultiplier, onlySyncOnChangeCorrectionMultiplier))
             {
                 RewriteHistory(
                     clientSnapshots,
@@ -279,9 +368,10 @@ namespace Mirror
         static bool NeedsCorrection(
             SortedList<double, TransformSnapshot> snapshots,
             double remoteTimestamp,
-            double bufferTime) =>
+            double bufferTime,
+            double toleranceMultiplier) =>
                 snapshots.Count == 1 &&
-                remoteTimestamp - snapshots.Keys[0] >= bufferTime;
+                remoteTimestamp - snapshots.Keys[0] >= bufferTime * toleranceMultiplier;
 
         // 2. insert a fake snapshot at current position,
         //    exactly one 'sendInterval' behind the newly received one.
@@ -319,6 +409,16 @@ namespace Mirror
         public override void ResetState()
         {
             base.ResetState();
+
+            // reset delta
+            lastSerializedPosition = Vector3Long.zero;
+            lastDeserializedPosition = Vector3Long.zero;
+
+            lastSerializedScale = Vector3Long.zero;
+            lastDeserializedScale = Vector3Long.zero;
+
+            // reset 'last' for delta too
+            last = new TransformSnapshot(0, 0, Vector3.zero, Quaternion.identity, Vector3.zero);
         }
     }
 }
