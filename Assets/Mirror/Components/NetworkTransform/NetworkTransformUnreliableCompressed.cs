@@ -31,6 +31,20 @@ namespace Mirror
             else if (isClient) UpdateClient();
         }
 
+        void LateUpdate()
+        {
+            // set dirty to trigger OnSerialize. either always, or only if changed.
+            // It has to be checked in LateUpdate() for onlySyncOnChange to avoid
+            // the possibility of Update() running first before the object's movement
+            // script's Update(), which then causes NT to send every alternate frame
+            // instead.
+            if (isServer || (IsClientWithAuthority && NetworkClient.ready))
+            {
+                // TODO only if Changed
+                SetDirty();
+            }
+        }
+
         protected virtual void UpdateServer()
         {
             // apply buffered snapshots IF client authority
@@ -103,6 +117,8 @@ namespace Mirror
             // an unchanged component would still require 1 byte.
             // let's use a dirty bit mask to filter those out as well.
 
+            Debug.Log($"NT OnSerialize: initial={initialState} method={syncMethod}");
+
             // initial
             if (initialState)
             {
@@ -133,6 +149,8 @@ namespace Mirror
         // in FastPaced mode, OnDeserialize always reads full state with initial=true.
         public override void OnDeserialize(NetworkReader reader, bool initialState)
         {
+            Debug.Log($"NT OnDeserialize: initial={initialState} method={syncMethod}");
+
             Vector3? position = null;
             Quaternion? rotation = null;
             Vector3? scale = null;
