@@ -33,6 +33,7 @@ namespace Mirror
         public NetworkWriter observersWriterReliable;
 
         // unreliable sync
+        public bool unreliableInitialState;
         public NetworkWriter ownerWriterFastPaced;
         public NetworkWriter observersWriterFastPaced;
 
@@ -40,6 +41,7 @@ namespace Mirror
         {
             ownerWriterReliable.Position = 0;
             observersWriterReliable.Position = 0;
+            unreliableInitialState = false;
             ownerWriterFastPaced.Position = 0;
             observersWriterFastPaced.Position = 0;
         }
@@ -235,6 +237,7 @@ namespace Mirror
         {
             ownerWriterReliable = new NetworkWriter(),
             observersWriterReliable = new NetworkWriter(),
+            unreliableInitialState = false,
             ownerWriterFastPaced = new NetworkWriter(),
             observersWriterFastPaced = new NetworkWriter(),
         };
@@ -1200,7 +1203,9 @@ namespace Mirror
             // (otherwise [SyncVar] changes would never be serialized in tests)
             //
             // NOTE: != instead of < because int.max+1 overflows at some point.
-            if (lastSerialization.tick != tick
+            if (lastSerialization.tick != tick ||
+                // if last one was for unreliable delta and we request unreliable full, then we need to resync.
+                lastSerialization.unreliableInitialState != unreliableFullSendIntervalElapsed
 #if UNITY_EDITOR
                 || !Application.isPlaying
 #endif
@@ -1225,6 +1230,7 @@ namespace Mirror
 
                 // set tick
                 lastSerialization.tick = tick;
+                lastSerialization.unreliableInitialState = unreliableFullSendIntervalElapsed;
                 //Debug.Log($"{name} (netId={netId}) serialized for tick={tickTimeStamp}");
             }
 
