@@ -17,8 +17,8 @@ namespace Mirror
             // force syncMethod to unreliable
             syncMethod = SyncMethod.Unreliable;
 
-            // force tick aligned sync
-            sendIntervalMultiplier = 1;
+            // Unreliable ignores syncInterval. don't need to force anymore:
+            // sendIntervalMultiplier = 1;
         }
 
         // update //////////////////////////////////////////////////////////////
