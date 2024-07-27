@@ -1971,7 +1971,7 @@ namespace Mirror
                     // 'Reliable' sync: send Reliable components over reliable with initial/delta
                     // get serialization for this entity viewed by this connection
                     // (if anything was serialized this time)
-                    NetworkWriter serialization = SerializeForConnection(identity, connection, SyncMethod.Reliable, unreliableFullSendIntervalElapsed);
+                    NetworkWriter serialization = SerializeForConnection(identity, connection, SyncMethod.Reliable, false);
                     if (serialization != null)
                     {
                         EntityStateMessage message = new EntityStateMessage
