@@ -1099,7 +1099,21 @@ namespace Mirror
                         //
                         // we don't want to clear bits before the syncInterval
                         // was elapsed, as then they wouldn't be synced.
-                        comp.ClearAllDirtyBits();
+                        if (method == SyncMethod.Reliable)
+                        {
+                            // for reliable: server knows initial. we only send deltas.
+                            // so always clear for deltas.
+                            comp.ClearAllDirtyBits();
+                        }
+                        else if (method == SyncMethod.Unreliable)
+                        {
+                            // for unreliable: server knows initial. we only send deltas.
+                            // but only clear for full syncs.
+                            // delta syncs over unreliable may not be delivered,
+                            // so we can only clear dirty bits for guaranteed to
+                            // be delivered full syncs.
+                            if (unreliableFullSendIntervalElapsed) comp.ClearAllDirtyBits();
+                        }
                     }
                 }
             }
