@@ -101,7 +101,9 @@ namespace Mirror
             }
         }
 
-        // in FastPaced mode, OnSerialize always writes full state with initial=true.
+        // Unreliable OnSerialize:
+        // - initial=true  sends reliable full state
+        // - initial=false sends unreliable delta states
         public override void OnSerialize(NetworkWriter writer, bool initialState)
         {
             // get current snapshot for broadcasting.
@@ -119,7 +121,7 @@ namespace Mirror
 
             Debug.Log($"NT OnSerialize: initial={initialState} method={syncMethod}");
 
-            // initial
+            // reliable full state
             if (initialState)
             {
                 // If there is a last serialized snapshot, we use it.
@@ -142,11 +144,26 @@ namespace Mirror
                 }
                 if (syncScale) writer.WriteVector3(snapshot.scale);
             }
-            // delta
-            else Debug.LogError($"{nameof(NetworkTransformUnreliableCompressed)} OnSerialize called with initial=false. This should never happen for unreliable state sync!");
+            // unreliable delta state
+            else
+            {
+                // TODO delta compress against last
+                if (syncPosition) writer.WriteVector3(snapshot.position);
+                if (syncRotation)
+                {
+                    // (optional) smallest three compression for now. no delta.
+                    if (compressRotation)
+                        writer.WriteUInt(Compression.CompressQuaternion(snapshot.rotation));
+                    else
+                        writer.WriteQuaternion(snapshot.rotation);
+                }
+                if (syncScale) writer.WriteVector3(snapshot.scale);
+            }
         }
 
-        // in FastPaced mode, OnDeserialize always reads full state with initial=true.
+        // Unreliable OnDeserialize:
+        // - initial=true  sends reliable full state
+        // - initial=false sends unreliable delta states
         public override void OnDeserialize(NetworkReader reader, bool initialState)
         {
             Debug.Log($"NT OnDeserialize: initial={initialState} method={syncMethod}");
@@ -155,7 +172,7 @@ namespace Mirror
             Quaternion? rotation = null;
             Vector3? scale = null;
 
-            // initial
+            // reliable full state
             if (initialState)
             {
                 if (syncPosition) position = reader.ReadVector3();
@@ -169,8 +186,20 @@ namespace Mirror
                 }
                 if (syncScale) scale = reader.ReadVector3();
             }
-            // delta
-            else Debug.LogError($"{nameof(NetworkTransformUnreliableCompressed)} OnDeserialize called with initial=false. This should never happen for unreliable state sync!");
+            // unreliable delta state
+            else
+            {
+                if (syncPosition) position = reader.ReadVector3();
+                if (syncRotation)
+                {
+                    // (optional) smallest three compression for now. no delta.
+                    if (compressRotation)
+                        rotation = Compression.DecompressQuaternion(reader.ReadUInt());
+                    else
+                        rotation = reader.ReadQuaternion();
+                }
+                if (syncScale) scale = reader.ReadVector3();
+            }
 
             // handle depending on server / client / host.
             // server has priority for host mode.
