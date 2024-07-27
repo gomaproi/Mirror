@@ -42,6 +42,12 @@ namespace Mirror
         public static float sendInterval => sendRate < int.MaxValue ? 1f / sendRate : 0; // for 30 Hz, that's 33ms
         static double lastSendTime;
 
+        // ocassionally send a full reliable state for unreliable components to delta compress against.
+        // This only applies to Components with SyncMethod=Unreliable.
+        public static int unreliableFullSendRate = 1;
+        public static float unreliableFullSendInterval => unreliableFullSendRate < int.MaxValue ? 1f / unreliableFullSendRate : 0; // for 1 Hz, that's 1000ms
+        static double lastUnreliableFullSendTime;
+
         /// <summary>Connection to host mode client (if any)</summary>
         public static LocalConnectionToClient localConnection { get; private set; }
 
