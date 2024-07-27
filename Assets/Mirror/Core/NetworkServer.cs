@@ -1953,7 +1953,9 @@ namespace Mirror
         }
 
         // helper function to broadcast the world to a connection
-        static void BroadcastToConnection(NetworkConnectionToClient connection)
+        // unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //   for reliable components, it just means sync as usual.
+        static void BroadcastToConnection(NetworkConnectionToClient connection, bool unreliableFullSendIntervalElapsed)
         {
             // for each entity that this connection is seeing
             foreach (NetworkIdentity identity in connection.observing)
@@ -2020,7 +2022,10 @@ namespace Mirror
         internal static readonly List<NetworkConnectionToClient> connectionsCopy =
             new List<NetworkConnectionToClient>();
 
-        static void Broadcast()
+        // broadcast world state to all connections.
+        // unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //   for reliable components, it just means sync as usual.
+        static void Broadcast(bool unreliableFullSendIntervalElapsed)
         {
             // copy all connections into a helper collection so that
             // OnTransportDisconnected can be called while iterating.
@@ -2057,7 +2062,7 @@ namespace Mirror
                     connection.Send(new TimeSnapshotMessage(), Channels.Unreliable);
 
                     // broadcast world state to this connection
-                    BroadcastToConnection(connection);
+                    BroadcastToConnection(connection, unreliableFullSendIntervalElapsed);
                 }
 
                 // update connection to flush out batched messages
@@ -2111,8 +2116,9 @@ namespace Mirror
                 // snapshots _but_ not every single tick.
                 // Unity 2019 doesn't have Time.timeAsDouble yet
                 bool sendIntervalElapsed = AccurateInterval.Elapsed(NetworkTime.localTime, sendInterval, ref lastSendTime);
+                bool unreliableFullSendIntervalElapsed = AccurateInterval.Elapsed(NetworkTime.localTime, unreliableFullSendInterval, ref lastUnreliableFullSendTime);
                 if (!Application.isPlaying || sendIntervalElapsed)
-                    Broadcast();
+                    Broadcast(unreliableFullSendIntervalElapsed);
             }
 
             // process all outgoing messages after updating the world

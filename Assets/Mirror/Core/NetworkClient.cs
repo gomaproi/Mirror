@@ -1549,7 +1549,10 @@ namespace Mirror
         // broadcast ///////////////////////////////////////////////////////////
         // NetworkServer has BroadcastToConnection.
         // NetworkClient has BroadcastToServer.
-        static void BroadcastToServer()
+        //
+        // unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //   for reliable components, it just means sync as usual.
+        static void BroadcastToServer(bool unreliableFullSendIntervalElapsed)
         {
             // for each entity that the client owns
             foreach (NetworkIdentity identity in connection.owned)
@@ -1606,7 +1609,10 @@ namespace Mirror
 
         // make sure Broadcast() is only called every sendInterval.
         // calling it every update() would require too much bandwidth.
-        static void Broadcast()
+        //
+        // unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //   for reliable components, it just means sync as usual.
+        static void Broadcast(bool unreliableFullSendIntervalElapsed)
         {
             // joined the world yet?
             if (!connection.isReady) return;
@@ -1618,7 +1624,7 @@ namespace Mirror
             Send(new TimeSnapshotMessage(), Channels.Unreliable);
 
             // broadcast client state to server
-            BroadcastToServer();
+            BroadcastToServer(unreliableFullSendIntervalElapsed);
         }
 
         // update //////////////////////////////////////////////////////////////
@@ -1657,9 +1663,10 @@ namespace Mirror
                 //
                 // Unity 2019 doesn't have Time.timeAsDouble yet
                 bool sendIntervalElapsed = AccurateInterval.Elapsed(NetworkTime.localTime, sendInterval, ref lastSendTime);
+                bool unreliableFullSendIntervalElapsed = AccurateInterval.Elapsed(NetworkTime.localTime, unreliableFullSendInterval, ref lastUnreliableFullSendTime);
                 if (!Application.isPlaying || sendIntervalElapsed)
                 {
-                    Broadcast();
+                    Broadcast(unreliableFullSendIntervalElapsed);
                 }
 
                 UpdateConnectionQuality();
