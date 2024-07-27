@@ -1994,7 +1994,8 @@ namespace Mirror
                             netId = identity.netId,
                             payload = serialization.ToArraySegment()
                         };
-                        connection.Send(message, Channels.Unreliable);
+                        // Unreliable mode still sends a reliable baseline every full interval.
+                        connection.Send(message, unreliableFullSendIntervalElapsed ? Channels.Reliable : Channels.Unreliable);
                     }
                 }
                 // spawned list should have no null entries because we

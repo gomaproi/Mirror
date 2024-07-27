@@ -1596,7 +1596,8 @@ namespace Mirror
                                 netId = identity.netId,
                                 payload = writer.ToArraySegment()
                             };
-                            Send(message, Channels.Unreliable);
+                            // Unreliable mode still sends a reliable baseline every full interval.
+                            Send(message, unreliableFullSendIntervalElapsed ? Channels.Reliable : Channels.Unreliable);
                         }
                     }
                 }
