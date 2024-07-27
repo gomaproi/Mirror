@@ -855,10 +855,8 @@ namespace Mirror
 
         // build dirty mask for server owner & observers (= all dirty components).
         // faster to do it in one iteration instead of iterating separately.
-        // -> initialState: marks all components for spawn message no matter the method.
-        // -> delta sync:   depends on SyncMethod
-        //       Reliable: mark the dirty components
-        //       Unreliable:   mark all components (unreliable isn't guaranteed to be delivered)
+        // -> initialState=true:  marks all components for spawn message no matter the method.
+        // -> initialState=false: marks only the dirty components.
         (ulong, ulong) ServerDirtyMasks(bool initialState, SyncMethod method)
         {
             ulong ownerMask = 0;
@@ -965,7 +963,13 @@ namespace Mirror
             // instead of writing a 1 byte index per component,
             // we limit components to 64 bits and write one ulong instead.
             // the ulong is also varint compressed for minimum bandwidth.
-            (ulong ownerMask, ulong observerMask) = ServerDirtyMasks(initialState, method);
+            (ulong ownerMask, ulong observerMask) = method == SyncMethod.Reliable
+                // for Reliable, initial is true for spawn and then false for subsequent updates.
+                // careful: using 'initial || fullElapsed' would cause initial syncs
+                //          every fullInterval for Reliable, which we don't want!
+                ? ServerDirtyMasks(initialState, SyncMethod.Reliable)
+                // for Unreliable, initial is true every full interval, false otherwise.
+                : ServerDirtyMasks(unreliableFullSendIntervalElapsed, SyncMethod.Unreliable);
 
             // if nothing dirty, then don't even write the mask.
             // otherwise, every unchanged object would send a 1 byte dirty mask!
@@ -1013,12 +1017,27 @@ namespace Mirror
                         //
                         // we don't want to clear bits before the syncInterval
                         // was elapsed, as then they wouldn't be synced.
-                        //
-                        // only clear for delta, not for full (spawn messages).
-                        // otherwise if a player joins, we serialize monster,
-                        // and shouldn't clear dirty bits not yet synced to
-                        // other players.
-                        if (!initialState) comp.ClearAllDirtyBits();
+                        if (method == SyncMethod.Reliable)
+                        {
+                            // for reliable, only clear for delta, not for full (spawn messages).
+                            // otherwise if a player joins, we serialize monster,
+                            // and shouldn't clear dirty bits not yet synced to
+                            // other players.
+                            if (!initialState) comp.ClearAllDirtyBits();
+                        }
+                        else if (method == SyncMethod.Unreliable)
+                        {
+                            // for unreliable: only clear for delta, not for full (spawn messages).
+                            // otherwise if a player joins, we serialize monster,
+                            // and shouldn't clear dirty bits not yet synced to
+                            // other players.
+                            //
+                            // for delta: only clear for full syncs.
+                            // delta syncs over unreliable may not be delivered,
+                            // so we can only clear dirty bits for guaranteed to
+                            // be delivered full syncs.
+                            if (!initialState && unreliableFullSendIntervalElapsed) comp.ClearAllDirtyBits();
+                        }
                     }
                 }
             }
