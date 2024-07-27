@@ -1593,7 +1593,6 @@ namespace Mirror
                         // get serialization for this entity viewed by this connection
                         // (if anything was serialized this time)
                         identity.SerializeClient(SyncMethod.Unreliable, writer, unreliableFullSendIntervalElapsed);
-                        int channel = unreliableFullSendIntervalElapsed ? Channels.Reliable : Channels.Unreliable;
                         if (writer.Position > 0)
                         {
                             // send state update message
@@ -1603,6 +1602,7 @@ namespace Mirror
                                 payload = writer.ToArraySegment()
                             };
                             // Unreliable mode still sends a reliable baseline every full interval.
+                            int channel = unreliableFullSendIntervalElapsed ? Channels.Reliable : Channels.Unreliable;
                             Send(message, channel);
                         }
                     }

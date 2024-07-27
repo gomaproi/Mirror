@@ -1998,7 +1998,8 @@ namespace Mirror
                             payload = serialization.ToArraySegment()
                         };
                         // Unreliable mode still sends a reliable baseline every full interval.
-                        connection.Send(message, unreliableFullSendIntervalElapsed ? Channels.Reliable : Channels.Unreliable);
+                        int channel = unreliableFullSendIntervalElapsed ? Channels.Reliable : Channels.Unreliable;
+                        connection.Send(message, channel);
                     }
                 }
                 // spawned list should have no null entries because we
