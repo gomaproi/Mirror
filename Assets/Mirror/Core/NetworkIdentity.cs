@@ -967,11 +967,13 @@ namespace Mirror
             // we limit components to 64 bits and write one ulong instead.
             // the ulong is also varint compressed for minimum bandwidth.
             (ulong ownerMask, ulong observerMask) =
-                // for Reliable, initial is true for spawn and then false for subsequent updates.
-                // careful: using 'initial || fullElapsed' would cause initial syncs
-                //          every fullInterval for Reliable, which we don't want!
-                // for Unreliable, initial is true every full interval, false otherwise.
-                ServerDirtyMasks(method == SyncMethod.Reliable ? initialState : unreliableFullSendIntervalElapsed, method);
+                // initialState: if true, flags all dirty bits.
+                //   Reliable:   initialState is true once, and then false on subsequent serializations.
+                //   Unreliable: spawn message is Reliable with initialState=true. and for subsequent serializations:
+                //               initialState is alwasy false because we only want to send reliable baseline (or unreliable deltas)
+                //               while dirty bits are set.
+                //               bits are reset after every reliable baseline send.
+                ServerDirtyMasks(method == SyncMethod.Reliable ? initialState : false, method);
 
             // if nothing dirty, then don't even write the mask.
             // otherwise, every unchanged object would send a 1 byte dirty mask!
