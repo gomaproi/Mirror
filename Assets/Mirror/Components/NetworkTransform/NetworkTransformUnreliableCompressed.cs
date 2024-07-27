@@ -181,6 +181,7 @@ namespace Mirror
             // reliable full state
             if (initialState)
             {
+                // TODO initialState is now sent multiple times. find a new fix for this:
                 // If there is a last serialized snapshot, we use it.
                 // This prevents the new client getting a snapshot that is different
                 // from what the older clients last got. If this happens, and on the next
@@ -190,7 +191,7 @@ namespace Mirror
                 //    of this function, last = snapshot which is the initial state's snapshot
                 // 2. Regular NTR gets by this bug because it sends every frame anyway so initialstate
                 //    snapshot constructed would have been the same as the last anyway.
-                if (last.remoteTime > 0) snapshot = last;
+                // if (last.remoteTime > 0) snapshot = last;
                 if (syncPosition) writer.WriteVector3(snapshot.position);
                 if (syncRotation)
                 {
