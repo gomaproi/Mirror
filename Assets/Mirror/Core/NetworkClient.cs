@@ -1568,7 +1568,7 @@ namespace Mirror
                     {
                         // get serialization for this entity viewed by this connection
                         // (if anything was serialized this time)
-                        identity.SerializeClient(SyncMethod.Reliable, writer);
+                        identity.SerializeClient(SyncMethod.Reliable, writer, unreliableFullSendIntervalElapsed);
                         if (writer.Position > 0)
                         {
                             // send state update message
@@ -1587,7 +1587,7 @@ namespace Mirror
                     {
                         // get serialization for this entity viewed by this connection
                         // (if anything was serialized this time)
-                        identity.SerializeClient(SyncMethod.Unreliable, writer);
+                        identity.SerializeClient(SyncMethod.Unreliable, writer, unreliableFullSendIntervalElapsed);
                         if (writer.Position > 0)
                         {
                             // send state update message

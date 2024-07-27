@@ -1436,7 +1436,7 @@ namespace Mirror
             // serialize all components with initialState = true
             // (can be null if has none)
             // SyncMethod doesn't matter for initialState, since everything is included
-            identity.SerializeServer(true, SyncMethod.Reliable, ownerWriter, observersWriter);
+            identity.SerializeServer(true, SyncMethod.Reliable, ownerWriter, observersWriter, false);
 
             // convert to ArraySegment to avoid reader allocations
             // if nothing was written, .ToArraySegment returns an empty segment.
@@ -1901,11 +1901,13 @@ namespace Mirror
 
         // broadcasting ////////////////////////////////////////////////////////
         // helper function to get the right serialization for a connection
-        static NetworkWriter SerializeForConnection(NetworkIdentity identity, NetworkConnectionToClient connection, SyncMethod method)
+        // unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //   for reliable components, it just means sync as usual.
+        static NetworkWriter SerializeForConnection(NetworkIdentity identity, NetworkConnectionToClient connection, SyncMethod method, bool unreliableFullSendIntervalElapsed)
         {
             // get serialization for this entity (cached)
             // IMPORTANT: int tick avoids floating point inaccuracy over days/weeks
-            NetworkIdentitySerialization serialization = identity.GetServerSerializationAtTick(Time.frameCount);
+            NetworkIdentitySerialization serialization = identity.GetServerSerializationAtTick(Time.frameCount, unreliableFullSendIntervalElapsed);
 
             // is this entity owned by this connection?
             bool owned = identity.connectionToClient == connection;
@@ -1969,7 +1971,7 @@ namespace Mirror
                     // 'Reliable' sync: send Reliable components over reliable with initial/delta
                     // get serialization for this entity viewed by this connection
                     // (if anything was serialized this time)
-                    NetworkWriter serialization = SerializeForConnection(identity, connection, SyncMethod.Reliable);
+                    NetworkWriter serialization = SerializeForConnection(identity, connection, SyncMethod.Reliable, unreliableFullSendIntervalElapsed);
                     if (serialization != null)
                     {
                         EntityStateMessage message = new EntityStateMessage
@@ -1981,8 +1983,10 @@ namespace Mirror
                     }
 
                     // 'Unreliable' sync: send Unreliable components over unreliable
-                    // state is always 'initial' since unreliable delivery isn't guaranteed,
-                    serialization = SerializeForConnection(identity, connection, SyncMethod.Unreliable);
+                    // state is 'initial' for reliable baseline, and 'not initial' for unreliable deltas.
+                    //   note that syncInterval is always ignored for unreliable in order to have tick aligned [SyncVars].
+                    //   even if we pass SyncMethod.Reliable, it serializes with initialState=true.
+                    serialization = SerializeForConnection(identity, connection, SyncMethod.Unreliable, unreliableFullSendIntervalElapsed);
                     if (serialization != null)
                     {
                         EntityStateMessageUnreliable message = new EntityStateMessageUnreliable

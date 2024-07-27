@@ -950,7 +950,9 @@ namespace Mirror
         // if any Components are dirty before creating writers
         // -> SyncMethod: Serialize handles all the magic internally depending
         //    on SyncMethod, so that the user API (OnSerialize) remains the same.
-        internal void SerializeServer(bool initialState, SyncMethod method, NetworkWriter ownerWriter, NetworkWriter observersWriter)
+        // -> unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //    for reliable components, it just means sync as usual.
+        internal void SerializeServer(bool initialState, SyncMethod method, NetworkWriter ownerWriter, NetworkWriter observersWriter, bool unreliableFullSendIntervalElapsed)
         {
             // ensure NetworkBehaviours are valid before usage
             ValidateComponents();
@@ -1025,7 +1027,10 @@ namespace Mirror
         // serialize components into writer on the client.
         // -> SyncMethod: Serialize handles all the magic internally depending
         //    on SyncMethod, so that the user API (OnSerialize) remains the same.
-        internal void SerializeClient(SyncMethod method, NetworkWriter writer)
+        //
+        // unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //   for reliable components, it just means sync as usual.
+        internal void SerializeClient(SyncMethod method, NetworkWriter writer, bool unreliableFullSendIntervalElapsed)
         {
             // ensure NetworkBehaviours are valid before usage
             ValidateComponents();
@@ -1152,7 +1157,10 @@ namespace Mirror
         // get cached serialization for this tick (or serialize if none yet).
         // IMPORTANT: int tick avoids floating point inaccuracy over days/weeks.
         // calls SerializeServer, so this function is to be called on server.
-        internal NetworkIdentitySerialization GetServerSerializationAtTick(int tick)
+        //
+        // unreliableFullSendIntervalElapsed: indicates that unreliable sync components need a reliable baseline sync this time.
+        //   for reliable components, it just means sync as usual.
+        internal NetworkIdentitySerialization GetServerSerializationAtTick(int tick, bool unreliableFullSendIntervalElapsed)
         {
             // only rebuild serialization once per tick. reuse otherwise.
             // except for tests, where Time.frameCount never increases.
@@ -1173,13 +1181,15 @@ namespace Mirror
                 SerializeServer(false,
                                 SyncMethod.Reliable,
                                 lastSerialization.ownerWriterReliable,
-                                lastSerialization.observersWriterReliable);
+                                lastSerialization.observersWriterReliable,
+                                unreliableFullSendIntervalElapsed);
 
                 // serialize - unreliable
                 SerializeServer(false,
                                 SyncMethod.Unreliable,
                                 lastSerialization.ownerWriterFastPaced,
-                                lastSerialization.observersWriterFastPaced);
+                                lastSerialization.observersWriterFastPaced,
+                                unreliableFullSendIntervalElapsed);
 
                 // set tick
                 lastSerialization.tick = tick;

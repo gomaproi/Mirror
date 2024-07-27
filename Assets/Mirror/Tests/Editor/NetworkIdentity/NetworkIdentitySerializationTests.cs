@@ -55,7 +55,7 @@ namespace Mirror.Tests.NetworkIdentities
             serverObserversComp.value = 42;
 
             // serialize server object
-            serverIdentity.SerializeServer(true, method, ownerWriter, observersWriter);
+            serverIdentity.SerializeServer(true, method, ownerWriter, observersWriter, false);
 
             // deserialize client object with OWNER payload
             NetworkReader reader = new NetworkReader(ownerWriter.ToArray());
@@ -103,7 +103,7 @@ namespace Mirror.Tests.NetworkIdentities
             // serialize server object
             // should work even if compExc throws an exception.
             // error log because of the exception is expected.
-            serverIdentity.SerializeServer(true, method, ownerWriter, observersWriter);
+            serverIdentity.SerializeServer(true, method, ownerWriter, observersWriter, false);
 
             // deserialize client object with OWNER payload
             // should work even if compExc throws an exception
@@ -196,7 +196,7 @@ namespace Mirror.Tests.NetworkIdentities
             serverComp.value = "42";
 
             // serialize server object
-            serverIdentity.SerializeServer(true, method, ownerWriter, observersWriter);
+            serverIdentity.SerializeServer(true, method, ownerWriter, observersWriter, false);
 
             // deserialize on client
             // ignore warning log because of serialization mismatch
@@ -228,7 +228,7 @@ namespace Mirror.Tests.NetworkIdentities
             // serialize server object.
             // 'initial' would write everything.
             // instead, try 'not initial' with 0 dirty bits
-            serverIdentity.SerializeServer(false, SyncMethod.Reliable, ownerWriter, observersWriter);
+            serverIdentity.SerializeServer(false, SyncMethod.Reliable, ownerWriter, observersWriter, false);
             Assert.That(ownerWriter.Position, Is.EqualTo(0));
             Assert.That(observersWriter.Position, Is.EqualTo(0));
         }
@@ -251,7 +251,7 @@ namespace Mirror.Tests.NetworkIdentities
             // serialize server object.
             // 'initial' would write everything.
             // instead, try 'not initial' with 0 dirty bits
-            serverIdentity.SerializeServer(false, SyncMethod.Unreliable, ownerWriter, observersWriter);
+            serverIdentity.SerializeServer(false, SyncMethod.Unreliable, ownerWriter, observersWriter, false);
             Assert.That(ownerWriter.Position, Is.GreaterThan(0));
             Assert.That(observersWriter.Position, Is.GreaterThan(0));
         }
@@ -275,7 +275,7 @@ namespace Mirror.Tests.NetworkIdentities
             // clientComp.value = "42";
 
             // serialize client object
-            clientIdentity.SerializeClient(SyncMethod.Reliable, ownerWriter);
+            clientIdentity.SerializeClient(SyncMethod.Reliable, ownerWriter, false);
             Assert.That(ownerWriter.Position, Is.EqualTo(0));
         }
 
@@ -302,7 +302,7 @@ namespace Mirror.Tests.NetworkIdentities
             // clientComp.value = "42";
 
             // serialize client object
-            clientIdentity.SerializeClient(SyncMethod.Unreliable, ownerWriter);
+            clientIdentity.SerializeClient(SyncMethod.Unreliable, ownerWriter, false);
             Assert.That(ownerWriter.Position, Is.GreaterThan(0));
         }
 
@@ -328,7 +328,7 @@ namespace Mirror.Tests.NetworkIdentities
             comp2.value = "67890";
 
             // serialize all
-            identity.SerializeClient(method, ownerWriter);
+            identity.SerializeClient(method, ownerWriter, false);
 
             // shouldn't sync anything. because even though it's ClientToServer,
             // we don't own this one so we shouldn't serialize & sync it.
@@ -355,7 +355,7 @@ namespace Mirror.Tests.NetworkIdentities
             comp.SetValue(11); // modify with helper function to avoid #3525
 
             // initial: should still write for owner
-            identity.SerializeServer(true, method, ownerWriter, observersWriter);
+            identity.SerializeServer(true, method, ownerWriter, observersWriter, false);
             Debug.Log("initial ownerWriter: " + ownerWriter);
             Debug.Log("initial observerWriter: " + observersWriter);
             Assert.That(ownerWriter.Position, Is.GreaterThan(0));
@@ -365,7 +365,7 @@ namespace Mirror.Tests.NetworkIdentities
             comp.SetValue(22); // modify with helper function to avoid #3525
             ownerWriter.Position = 0;
             observersWriter.Position = 0;
-            identity.SerializeServer(false,method, ownerWriter, observersWriter);
+            identity.SerializeServer(false,method, ownerWriter, observersWriter, false);
             Debug.Log("delta ownerWriter: " + ownerWriter);
             Debug.Log("delta observersWriter: " + observersWriter);
             Assert.That(ownerWriter.Position, Is.EqualTo(0));
@@ -396,7 +396,7 @@ namespace Mirror.Tests.NetworkIdentities
             comp.SetValue(11); // modify with helper function to avoid #3525
 
             // initial: should write something for owner and observers
-            identity.SerializeServer(true, method, ownerWriter, observersWriter);
+            identity.SerializeServer(true, method, ownerWriter, observersWriter, false);
             Debug.Log("initial ownerWriter: " + ownerWriter);
             Debug.Log("initial observerWriter: " + observersWriter);
             Assert.That(ownerWriter.Position, Is.GreaterThan(0));
@@ -406,7 +406,7 @@ namespace Mirror.Tests.NetworkIdentities
             comp.SetValue(22); // modify with helper function to avoid #3525
             ownerWriter.Position = 0;
             observersWriter.Position = 0;
-            identity.SerializeServer(false, method, ownerWriter, observersWriter);
+            identity.SerializeServer(false, method, ownerWriter, observersWriter, false);
             Debug.Log("delta ownerWriter: " + ownerWriter);
             Debug.Log("delta observersWriter: " + observersWriter);
             Assert.That(ownerWriter.Position, Is.EqualTo(0));
