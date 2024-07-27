@@ -1401,7 +1401,7 @@ namespace Mirror
             else Debug.LogWarning($"Did not find target for sync message for {message.netId}. Were all prefabs added to the NetworkManager's spawnable list?\nNote: this can be completely normal because UDP messages may arrive out of order, so this message might have arrived after a Destroy message.");
         }
 
-        static void OnEntityStateMessageUnreliable(EntityStateMessageUnreliable message)
+        static void OnEntityStateMessageUnreliable(EntityStateMessageUnreliable message, int channelId)
         {
             // Debug.Log($"NetworkClient.OnUpdateVarsMessage {msg.netId}");
             if (spawned.TryGetValue(message.netId, out NetworkIdentity identity) && identity != null)
@@ -1423,7 +1423,12 @@ namespace Mirror
 
                 // iniital is always 'true' because unreliable state sync alwasy serializes full
                 using (NetworkReaderPooled reader = NetworkReaderPool.Get(message.payload))
-                    identity.DeserializeClient(reader, true);
+                {
+                    // full state updates (initial=true) arrive over reliable.
+                    // delta state updates (initial=false) arrive over unreliable.
+                    bool initialState = channelId == Channels.Reliable;
+                    identity.DeserializeClient(reader, initialState);
+                }
             }
             else Debug.LogWarning($"Did not find target for sync message for {message.netId}. Were all prefabs added to the NetworkManager's spawnable list?\nNote: this can be completely normal because UDP messages may arrive out of order, so this message might have arrived after a Destroy message.");
         }
@@ -1588,6 +1593,7 @@ namespace Mirror
                         // get serialization for this entity viewed by this connection
                         // (if anything was serialized this time)
                         identity.SerializeClient(SyncMethod.Unreliable, writer, unreliableFullSendIntervalElapsed);
+                        int channel = unreliableFullSendIntervalElapsed ? Channels.Reliable : Channels.Unreliable;
                         if (writer.Position > 0)
                         {
                             // send state update message

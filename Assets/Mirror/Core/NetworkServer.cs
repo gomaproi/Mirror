@@ -420,7 +420,7 @@ namespace Mirror
         }
 
         // for client's owned ClientToServer components.
-        static void OnEntityStateMessageUnreliable(NetworkConnectionToClient connection, EntityStateMessageUnreliable message)
+        static void OnEntityStateMessageUnreliable(NetworkConnectionToClient connection, EntityStateMessageUnreliable message, int channelId)
         {
             // need to validate permissions carefully.
             // an attacker may attempt to modify a not-owned or not-ClientToServer component.
@@ -450,8 +450,11 @@ namespace Mirror
                     {
                         // DeserializeServer checks permissions internally.
                         // failure to deserialize disconnects to prevent exploits.
-                        // for unreliable sync, we always send full state (initialState=true).
-                        if (!identity.DeserializeServer(reader, true))
+                        //
+                        // full state updates (initial=true) arrive over reliable.
+                        // delta state updates (initial=false) arrive over unreliable.
+                        bool initialState = channelId == Channels.Reliable;
+                        if (!identity.DeserializeServer(reader, initialState))
                         {
                             if (exceptionsDisconnect)
                             {
