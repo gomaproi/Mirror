@@ -963,13 +963,12 @@ namespace Mirror
             // instead of writing a 1 byte index per component,
             // we limit components to 64 bits and write one ulong instead.
             // the ulong is also varint compressed for minimum bandwidth.
-            (ulong ownerMask, ulong observerMask) = method == SyncMethod.Reliable
+            (ulong ownerMask, ulong observerMask) =
                 // for Reliable, initial is true for spawn and then false for subsequent updates.
                 // careful: using 'initial || fullElapsed' would cause initial syncs
                 //          every fullInterval for Reliable, which we don't want!
-                ? ServerDirtyMasks(initialState, SyncMethod.Reliable)
                 // for Unreliable, initial is true every full interval, false otherwise.
-                : ServerDirtyMasks(unreliableFullSendIntervalElapsed, SyncMethod.Unreliable);
+                ServerDirtyMasks(method == SyncMethod.Reliable ? initialState : unreliableFullSendIntervalElapsed, method);
 
             // if nothing dirty, then don't even write the mask.
             // otherwise, every unchanged object would send a 1 byte dirty mask!
@@ -1003,7 +1002,7 @@ namespace Mirror
                         // serialize into helper writer
                         using (NetworkWriterPooled temp = NetworkWriterPool.Get())
                         {
-                            comp.Serialize(temp, initialState, method);
+                            comp.Serialize(temp, method == SyncMethod.Reliable ? initialState : unreliableFullSendIntervalElapsed);
                             ArraySegment<byte> segment = temp.ToArraySegment();
 
                             // copy to owner / observers as needed
@@ -1091,7 +1090,7 @@ namespace Mirror
                     {
                         // serialize into writer.
                         // server always knows initialState, we never need to send it
-                        comp.Serialize(writer, false, method);
+                        comp.Serialize(writer, method == SyncMethod.Reliable ? false : unreliableFullSendIntervalElapsed);
 
                         // clear dirty bits for the components that we serialized.
                         // do not clear for _all_ components, only the ones that

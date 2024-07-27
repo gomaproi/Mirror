@@ -1261,7 +1261,7 @@ namespace Mirror
         // on other entities would be mismatched, causing the weirdest errors.
         //
         // reads <<len, payload, len, payload, ...>> for 100% safety.
-        internal void Serialize(NetworkWriter writer, bool initialState, SyncMethod method)
+        internal void Serialize(NetworkWriter writer, bool initialState)
         {
             // reserve length header to ensure the correct amount will be read.
             // originally we used a 4 byte header (too bandwidth heavy).
@@ -1294,7 +1294,7 @@ namespace Mirror
                 //   Unreliable: Serialize(initial) all the time because we always need full state for unreliable messages
                 // => reusing OnSerialize(initial=true) for FastPaced allows us to keep the API clean and simple.
                 //    this way the end user never needs to worry about SyncMethod serialization.
-                OnSerialize(writer, initialState || method == SyncMethod.Unreliable);
+                OnSerialize(writer, initialState);
             }
             catch (Exception e)
             {
