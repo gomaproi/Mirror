@@ -73,7 +73,7 @@ namespace Mirror
         /// <summary>Automatically switch to this scene upon going online (after connect/startserver).</summary>
         [Scene]
         [FormerlySerializedAs("m_OnlineScene")]
-        [Tooltip("Scene that Mirror will switch to when the server is started. Clients will recieve a Scene Message to load the server's current scene when they connect.")]
+        [Tooltip("Scene that Mirror will switch to when the server is started. Clients will receive a Scene Message to load the server's current scene when they connect.")]
         public string onlineScene = "";
 
         [Range(0, 60), Tooltip("Optional delay that can be used after disconnecting to show a 'Connection lost...' message or similar before loading the offline scene, which may take a long time in big projects.")]
